@@ -7,6 +7,10 @@ export class BotUpdate {
   constructor(private readonly botService: BotService) { }
   @Start()
   async onStart(@Ctx() ctx: Context) {
-    ctx.reply("salom")
+    try {
+      
+    } catch (error) {
+      console.log("Error on Start", error);
+    }
   }
 }
