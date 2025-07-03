@@ -6,45 +6,51 @@ interface IBotCreationAttr {
     last_name: string | undefined;
     lang: string | undefined;
     name: string | undefined
-    role:string | undefined
+    role: string | undefined
+    phone_number: string | undefined
     last_state: string | undefined;
 }
 
-@Table({tableName:"user"})
+@Table({ tableName: "user" })
 export class Bot extends Model<Bot, IBotCreationAttr> {
     @Column({
-        type:DataType.STRING,
-        primaryKey:true
+        type: DataType.STRING,
+        primaryKey: true
     })
-    user_id:string|undefined
+    declare user_id: string | undefined
 
     @Column({
-        type:DataType.STRING,
+        type: DataType.STRING,
     })
-    first_name:string|undefined
+    declare first_name: string | undefined
 
     @Column({
-        type:DataType.STRING,
+        type: DataType.STRING,
     })
-    last_name:string|undefined
+    declare last_name: string | undefined
 
     @Column({
-        type:DataType.STRING,
+        type: DataType.STRING,
     })
-    lang:string|undefined
+    declare lang: string | undefined
 
     @Column({
-        type:DataType.STRING,
+        type: DataType.STRING,
     })
-    name:string|undefined
+    declare name: string | undefined
 
     @Column({
-        type:DataType.STRING,
+        type: DataType.STRING,
     })
-    role:string|undefined
+    declare role: string | undefined
 
     @Column({
-        type:DataType.STRING,
+        type: DataType.STRING,
     })
-    last_state:string|undefined
+    declare phone_number: string | undefined
+
+    @Column({
+        type: DataType.STRING,
+    })
+    declare last_state: string | undefined
 }
