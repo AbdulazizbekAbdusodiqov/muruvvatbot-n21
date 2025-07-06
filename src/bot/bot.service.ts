@@ -1,0 +1,224 @@
+import { Injectable } from "@nestjs/common";
+import { Context, Markup, Telegraf } from "telegraf";
+import { InjectModel } from "@nestjs/sequelize";
+import { Bot } from "./models/bot.model";
+import { BOT_NAME } from "../app.constants";
+import { Ctx, InjectBot } from "nestjs-telegraf";
+
+@Injectable()
+export class BotService {
+  constructor(
+    @InjectModel(Bot) private botModel: typeof Bot,
+    @InjectBot(BOT_NAME) private readonly bot: Telegraf<Context>
+  ) { }
+
+  async start(ctx: Context) {
+    try {
+      const user_id = ctx.from?.id;
+      const user = await this.botModel.findOne({
+        where: { user_id: String(user_id) },
+      });
+
+      if (!user) {
+        await this.botModel.create({
+          user_id: ctx.from?.id!,
+          first_name: ctx.from?.first_name,
+          last_name: ctx.from?.last_name,
+          last_state: "role",
+        });
+      }
+      if("startPayload" in ctx){
+        const payload = ctx.startPayload
+        console.log(payload);
+        
+      }
+      await ctx.reply(
+        "Qaysi ro'ldan ro'yxatdan o'tmoqchisiz?",
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback("Sahiy", `sahiy__${user_id}`),
+            Markup.button.callback("Sabrli", `sabrli__${user_id}`),
+          ],
+        ])
+      );
+    } catch (error) {
+      console.log("Error on Start: ", error);
+    }
+  }
+
+  async ClickSahiy(ctx: Context) {
+    try {
+      const user_id = ctx.callbackQuery!["data"].split("__")[1];
+      const user = await Bot.findOne({ where: { user_id } });
+      if (!user) {
+        await ctx.reply("Siz hali ro'yxatdan o'tmagansiz", {
+          parse_mode: "HTML",
+          ...Markup.keyboard(["/start"]).resize().oneTime(),
+        });
+      } else {
+        user.role = "sahiy";
+        user.last_state = "name";
+        await user.save();
+        ctx.reply("Ismingizni kiriting:");
+      }
+    } catch (error) {
+      console.log("Error on Click Sahiy", error);
+    }
+  }
+  async ClickMuruvvatQilish(ctx: Context) {
+    try {
+
+      const user_id = ctx.callbackQuery!["data"].split("__")[1];
+      const user = await Bot.findOne({ where: { user_id } });
+      if (!user) {
+        await ctx.reply("Siz hali ro'yxatdan o'tmagansiz", {
+          parse_mode: "HTML",
+          ...Markup.keyboard(["/start"]).resize().oneTime(),
+        });
+      } else {
+        user.last_state = "muruvvat_qilish";
+        await user.save();
+        ctx.reply("Kiritmoqchi bo'lgan narsangizni yozib yuboring:");
+      }
+    } catch (error) {
+      console.log("Error on Click Sahiy", error);
+    }
+  }
+
+  async text(@Ctx() ctx: Context) {
+    try {
+      const user_id = ctx.from?.id;
+      const user = await Bot.findOne({ where: { user_id: String(user_id) } });
+      if (!user) {
+        await ctx.reply("Siz hali ro'yxatdan o'tmagansiz", {
+          parse_mode: "HTML",
+          ...Markup.keyboard(["/start"]).resize().oneTime(),
+        });
+      } else {
+        if ("text" in ctx.msg) {
+
+          if (user.last_state == "name") {
+            if ("text" in ctx.msg) {
+              user.name = ctx.msg.text;
+              user.last_state = "phone_number";
+              await user.save();
+
+              ctx.reply("Telefon raqamingizni yuboring", {
+                ...Markup.keyboard([
+                  Markup.button.contactRequest("Contactni ulashish"),
+                ]).resize(),
+              });
+            }
+          } else if (user.last_state == "location") {
+            if ("text" in ctx.msg) {
+              if (ctx.msg.text == "O'tkazib yuborish") {
+                user.location = ""
+                user.last_state = "finish"
+                await user.save()
+
+                ctx.reply("Bo'limlardan birini tanlang", {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: "Muruvvat qilish", callback_data: "muruvvat_qilish" }, { text: "Sabrlilarni ko'rish", callback_data: "sabrlilarni_korish" }],
+                      [{ text: "Admin bilan bosg'lanish", callback_data: "call_admin" }, { text: "Sozlamalar", callback_data: "settings" }],
+                      [{ text: "Asosiy Menyu", callback_data: "home_menu" }],
+                    ],
+                    remove_keyboard: true
+                  }
+                })
+
+              } else {
+                console.log("hello")
+                user.location = ctx.msg.text
+                user.last_state = "finish"
+                await user.save()
+                ctx.reply("Bo'limlardan birini tanlang", {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: "Muruvvat qilish", callback_data: `muruvvat_qilish__${ctx.from?.id}` }, { text: "Sabrlilarni ko'rish", callback_data: "sabrlilarni_korish" }],
+                      [{ text: "Admin bilan bosg'lanish", callback_data: "call_admin" }, { text: "Sozlamalar", callback_data: "settings" }],
+                      [{ text: "Asosiy Menyu", callback_data: "home_menu" }],
+                    ],
+                    ...Markup.removeKeyboard()
+                  }
+                })
+              }
+
+            }
+          } else if (user.last_state == "muruvvat_qilish") {
+            const channelId = process.env.CHANNEL_ID!; 
+
+            await this.bot.telegram.sendMessage(channelId, ctx.msg.text, {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "Ko'proq ma'lumot",
+                      url:"https://t.me/n21_test_bot?start=from_channel",
+                    },
+                  ],
+                ],
+              },
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.log("Error on Text", error);
+    }
+  }
+
+  async contact(ctx: Context) {
+    try {
+      const user_id = ctx.from?.id;
+      const user = await Bot.findOne({ where: { user_id: String(user_id) } });
+      if (!user) {
+        await ctx.reply("Siz hali ro'yxatdan o'tmagansiz", {
+          parse_mode: "HTML",
+          ...Markup.keyboard(["/start"]).resize().oneTime(),
+        });
+      } else {
+        if (user.last_state == "phone_number") {
+          if ("contact" in ctx.msg) {
+            user.phone_number = ctx.msg.contact.phone_number;
+            user.last_state = "location";
+            await user.save();
+            ctx.reply(
+              "Manzilingizni kiriting:",
+              Markup.keyboard(["O'tkazib yuborish"]).resize()
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.log("Error on Contact", error);
+    }
+  }
+
+  async stop(ctx: Context) {
+    try {
+      const user_id = ctx.from?.id;
+      const user = await this.botModel.findOne({
+        where: { user_id: String(user_id) },
+      });
+
+      if (!user) {
+        await ctx.replyWithHTML(`Siz avval ro'yxattan o'tmagansiz`, {
+          ...Markup.removeKeyboard(),
+        });
+      } else if (user.status) {
+        user.status = false;
+        await user.save();
+
+        await ctx.replyWithHTML(
+          `Siz vaqtincha botdan chiqib ketdingiz. Qayta faollashtirish uchun /start tugmasini bosing!`,
+          {
+            ...Markup.keyboard([["/start"]]).resize(),
+          }
+        );
+      }
+    } catch (error) {
+      console.log(`❌ Error on Stop: `, error);
+    }
+  }
+}
